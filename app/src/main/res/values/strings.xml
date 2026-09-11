@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+
+    <string name="app_name">AetherPlayer</string>
+
+    <string name="device_admin_description">
+        Controls AetherPlayer dedicated-device operation.
+    </string>
+
+</resources>
