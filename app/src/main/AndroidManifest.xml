@@ -3,6 +3,30 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+
+    <queries>
+
+        <package android:name="com.spotify.music" />
+
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -47,21 +71,37 @@
 
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
 
         </receiver>
 
-        <activity
-            android:name=".MainActivity"
-            android:directBootAware="true"
+        <service
+            android:name=".SpotifyNotificationListener"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+
+        </service>
+
+        <activity
+            android:name=".ControllerActivity"
+            android:exported="true">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+        </activity>
+
+        <activity
+            android:name=".KioskHomeActivity"
+            android:directBootAware="true"
+            android:exported="true"
+            android:launchMode="singleTask">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -70,6 +110,11 @@
             </intent-filter>
 
         </activity>
+
+        <activity
+            android:name=".BluetoothActivity"
+            android:exported="false"
+            android:parentActivityName=".KioskHomeActivity" />
 
     </application>
 

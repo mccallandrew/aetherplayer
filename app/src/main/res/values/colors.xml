@@ -3,6 +3,11 @@
 <resources>
 
     <color name="aether_green">#39FF88</color>
+    <color name="aether_orange">#FF6A00</color>
     <color name="aether_background">#101412</color>
+    <color name="aether_surface">#1C2220</color>
+    <color name="aether_surface_pressed">#2A322F</color>
+    <color name="aether_text">#F2F5F3</color>
+    <color name="aether_text_muted">#8A9791</color>
 
 </resources>
