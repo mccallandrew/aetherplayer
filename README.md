@@ -1,6 +1,9 @@
 # AetherPlayer
 
 Device-owner kiosk controller that launches Spotify in lock task mode.
+Bluetooth pairing is handled in-app. While the Bluetooth screen is
+open, Settings / Fast Pair packages are temporarily lock-task
+allowlisted so system pairing UI is not blocked.
 
 ## Build and install
 
@@ -14,6 +17,13 @@ AetherPlayer must be the device owner. The device cannot already have an account
 ```bash
 adb shell dpm set-device-owner \
   com.mccallandrew.aetherplayer/.AetherDeviceAdminReceiver
+```
+
+Grant notification-listener access so the home screen can read Spotify’s now-playing session (also only once):
+
+```bash
+adb shell cmd notification allow_listener \
+  com.mccallandrew.aetherplayer/.SpotifyNotificationListener
 ```
 
 ## Kiosk commands

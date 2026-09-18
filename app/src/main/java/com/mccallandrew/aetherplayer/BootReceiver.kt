@@ -3,6 +3,7 @@ package com.mccallandrew.aetherplayer
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 
 class BootReceiver : BroadcastReceiver() {
 
@@ -10,23 +11,25 @@ class BootReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent
     ) {
-        if (
-            intent.action != Intent.ACTION_BOOT_COMPLETED &&
-            intent.action != Intent.ACTION_LOCKED_BOOT_COMPLETED
-        ) {
+        /*
+         * Only BOOT_COMPLETED. Listening for
+         * LOCKED_BOOT_COMPLETED as well only started a second
+         * kiosk that overlapped the real one.
+         */
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) {
             return
         }
 
-        val launchIntent =
-            Intent(context, MainActivity::class.java).apply {
-                action = MainActivity.ACTION_START_KIOSK
+        Log.i(TAG, "Boot completed, entering kiosk mode.")
 
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_CLEAR_TASK
-                )
-            }
+        KioskCommandReceiver.setKioskEnabled(context, true)
+        KioskCommandReceiver.setNotificationListenerAccess(context, true)
+        KioskCommandReceiver.applyPersistentHome(context)
+        KioskCommandReceiver.launchKioskHome(context)
+    }
 
-        context.startActivity(launchIntent)
+    companion object {
+
+        private const val TAG = "AetherPlayer"
     }
 }

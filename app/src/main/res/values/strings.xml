@@ -8,4 +8,84 @@
         Controls AetherPlayer dedicated-device operation.
     </string>
 
+    <string name="spotify_tile_label">Spotify</string>
+
+    <string name="bluetooth_tile_label">Bluetooth</string>
+    <string name="bluetooth_tile_description">Open Bluetooth devices</string>
+    <string name="bluetooth_no_devices">No devices connected</string>
+    <string name="bluetooth_off">Bluetooth is off</string>
+
+    <string name="bluetooth_title">Bluetooth</string>
+    <string name="bluetooth_back">Back</string>
+    <string name="bluetooth_toggle_description">Bluetooth on or off</string>
+    <string name="bluetooth_section_my_devices">My devices</string>
+    <string name="bluetooth_section_available">Available devices</string>
+    <string name="bluetooth_no_paired_devices">No paired devices</string>
+    <string name="bluetooth_no_available_devices">No devices found</string>
+    <string name="bluetooth_scanning">Scanning for devices…</string>
+    <string name="bluetooth_scan">Scan</string>
+    <string name="bluetooth_stop_scan">Stop</string>
+    <string name="bluetooth_status_connected">Connected</string>
+    <string name="bluetooth_status_connecting">Connecting…</string>
+    <string name="bluetooth_status_paired">Paired</string>
+    <string name="bluetooth_status_available">Available</string>
+    <string name="bluetooth_connect">Connect</string>
+    <string name="bluetooth_disconnect">Disconnect</string>
+    <string name="bluetooth_pair">Pair</string>
+    <string name="bluetooth_forget">Forget</string>
+    <string name="bluetooth_permission_missing">
+        Bluetooth permission is missing.
+    </string>
+    <string name="bluetooth_toggle_failed">
+        Unable to change Bluetooth power.
+    </string>
+    <string name="bluetooth_scan_failed">
+        Unable to scan for devices.
+    </string>
+    <string name="bluetooth_pair_failed">
+        Unable to pair with that device.
+    </string>
+    <string name="bluetooth_connect_pending">
+        Connecting…
+    </string>
+    <string name="bluetooth_connect_failed">
+        Unable to connect to that device.
+    </string>
+    <string name="bluetooth_connect_le_only">
+        That device paired over Bluetooth LE. Forget it, put the earbuds in pairing mode, and pair again (not the -LE name).
+    </string>
+    <string name="bluetooth_disconnect_failed">
+        Unable to disconnect that device.
+    </string>
+    <string name="bluetooth_forget_failed">
+        Unable to forget that device.
+    </string>
+    <string name="bluetooth_pin_title">PIN for %1$s</string>
+    <string name="bluetooth_pin_hint">PIN</string>
+    <string name="bluetooth_pin_pair">Pair</string>
+    <string name="bluetooth_pin_cancel">Cancel</string>
+
+    <string name="now_playing_idle">Nothing playing</string>
+    <string name="now_playing_album_art">Album art</string>
+    <string name="now_playing_play">Play</string>
+    <string name="now_playing_pause">Pause</string>
+    <string name="now_playing_previous">Previous track</string>
+    <string name="now_playing_next">Next track</string>
+
+    <string name="status_not_device_owner">
+        AetherPlayer is not the Device Owner.
+    </string>
+
+    <string name="status_spotify_missing">
+        Spotify is not installed.
+    </string>
+
+    <string name="status_spotify_launch_failed">
+        Unable to open Spotify.
+    </string>
+
+    <string name="status_bluetooth_launch_failed">
+        Unable to open Bluetooth.
+    </string>
+
 </resources>
