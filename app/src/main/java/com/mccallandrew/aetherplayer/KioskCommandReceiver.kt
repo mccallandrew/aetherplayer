@@ -33,6 +33,8 @@ class KioskCommandReceiver : BroadcastReceiver() {
                 setNotificationListenerAccess(context, false)
                 clearLockTaskPackages(context)
                 clearLockTaskFeatures(context)
+                KioskLockWallpaper.restore(context)
+                KioskScreenTimeout.restore(context)
                 restoreOriginalHome(context)
                 launchOriginalHome(context)
             }
