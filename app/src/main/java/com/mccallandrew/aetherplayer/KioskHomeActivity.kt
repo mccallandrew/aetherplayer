@@ -27,7 +27,8 @@ class KioskHomeActivity :
     Activity(),
     SpotifyNowPlayingController.Listener,
     BluetoothDevicesHelper.Listener,
-    WifiStatusHelper.Listener {
+    WifiStatusHelper.Listener,
+    BatteryStatusHelper.Listener {
 
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var activityManager: ActivityManager
@@ -44,11 +45,15 @@ class KioskHomeActivity :
     private lateinit var bluetoothDevices: TextView
     private lateinit var wifiTile: View
     private lateinit var wifiNetwork: TextView
+    private lateinit var batteryGauge: BatteryGaugeView
+    private lateinit var batteryPercent: TextView
+    private lateinit var batteryCaption: TextView
     private lateinit var statusMessage: TextView
 
     private var nowPlayingController: SpotifyNowPlayingController? = null
     private var bluetoothDevicesHelper: BluetoothDevicesHelper? = null
     private var wifiStatusHelper: WifiStatusHelper? = null
+    private var batteryStatusHelper: BatteryStatusHelper? = null
     private var forwardedToOriginalHome = false
     private var spotifyInstalled = false
 
@@ -88,6 +93,9 @@ class KioskHomeActivity :
         bluetoothDevices = findViewById(R.id.bluetooth_devices)
         wifiTile = findViewById(R.id.wifi_tile)
         wifiNetwork = findViewById(R.id.wifi_network)
+        batteryGauge = findViewById(R.id.battery_gauge)
+        batteryPercent = findViewById(R.id.battery_percent)
+        batteryCaption = findViewById(R.id.battery_caption)
         statusMessage = findViewById(R.id.status_message)
 
         nowPlayingPanel.setOnClickListener {
@@ -149,12 +157,14 @@ class KioskHomeActivity :
 
         startBluetoothDevicesHelper()
         startWifiStatusHelper()
+        startBatteryStatusHelper()
     }
 
     override fun onPause() {
         stopNowPlayingController()
         stopBluetoothDevicesHelper()
         stopWifiStatusHelper()
+        stopBatteryStatusHelper()
         super.onPause()
     }
 
@@ -214,6 +224,23 @@ class KioskHomeActivity :
 
     override fun onWifiStatusChanged(summary: String) {
         wifiNetwork.text = summary
+    }
+
+    override fun onBatteryStatusChanged(
+        status: BatteryStatusHelper.BatteryStatus
+    ) {
+        batteryGauge.setBatteryState(
+            percent = status.percent,
+            isCharging = status.isCharging,
+            isFull = status.isFull
+        )
+
+        batteryPercent.text = getString(
+            R.string.battery_percent,
+            status.percent
+        )
+
+        batteryCaption.text = batteryCaptionFor(status)
     }
 
     private fun handleLaunchIntent(intent: Intent?) {
@@ -509,6 +536,72 @@ class KioskHomeActivity :
         wifiStatusHelper = null
     }
 
+    private fun startBatteryStatusHelper() {
+        if (batteryStatusHelper != null) {
+            batteryStatusHelper?.refresh()
+            return
+        }
+
+        val helper = BatteryStatusHelper(this, this)
+        batteryStatusHelper = helper
+        helper.start()
+    }
+
+    private fun stopBatteryStatusHelper() {
+        batteryStatusHelper?.stop()
+        batteryStatusHelper = null
+    }
+
+    private fun batteryCaptionFor(
+        status: BatteryStatusHelper.BatteryStatus
+    ): String {
+        if (status.isFull) {
+            return getString(R.string.battery_status_full)
+        }
+
+        if (status.isCharging) {
+            val remaining = formatChargeRemaining(
+                status.chargeTimeRemainingMs
+            )
+
+            if (remaining != null) {
+                return getString(
+                    R.string.battery_status_charging_remaining,
+                    remaining
+                )
+            }
+
+            return getString(R.string.battery_status_charging)
+        }
+
+        return getString(R.string.battery_status_on_battery)
+    }
+
+    private fun formatChargeRemaining(remainingMs: Long): String? {
+        if (remainingMs <= 0L) {
+            return null
+        }
+
+        val totalMinutes = (remainingMs / 60_000L).toInt()
+
+        if (totalMinutes < 1) {
+            return null
+        }
+
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+
+        return when {
+            hours == 0 -> getString(R.string.battery_time_minutes, minutes)
+            minutes == 0 -> getString(R.string.battery_time_hours, hours)
+            else -> getString(
+                R.string.battery_time_hours_minutes,
+                hours,
+                minutes
+            )
+        }
+    }
+
     private fun setTransportEnabled(
         playPauseEnabled: Boolean,
         previousEnabled: Boolean,
@@ -614,6 +707,7 @@ class KioskHomeActivity :
         stopNowPlayingController()
         stopBluetoothDevicesHelper()
         stopWifiStatusHelper()
+        stopBatteryStatusHelper()
 
         KioskCommandReceiver.setKioskEnabled(this, false)
         KioskCommandReceiver.setNotificationListenerAccess(this, false)
