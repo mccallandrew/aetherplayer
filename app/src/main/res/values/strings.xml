@@ -70,6 +70,16 @@
     <string name="wifi_not_connected">Not connected</string>
     <string name="wifi_off">Wi-Fi is off</string>
 
+    <string name="battery_card_description">Battery status</string>
+    <string name="battery_percent">%1$d%%</string>
+    <string name="battery_status_charging">Charging</string>
+    <string name="battery_status_on_battery">On battery</string>
+    <string name="battery_status_full">Fully charged</string>
+    <string name="battery_status_charging_remaining">Charging · about %1$s</string>
+    <string name="battery_time_hours">%1$d hr</string>
+    <string name="battery_time_minutes">%1$d min</string>
+    <string name="battery_time_hours_minutes">%1$d hr %2$d min</string>
+
     <string name="wifi_title">Wi-Fi</string>
     <string name="wifi_back">Back</string>
     <string name="wifi_toggle_description">Wi-Fi on or off</string>

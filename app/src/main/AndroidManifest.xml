@@ -34,7 +34,6 @@
 
     <application
         android:allowBackup="false"
-        android:directBootAware="true"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.AetherPlayer">
@@ -103,7 +102,6 @@
 
         <activity
             android:name=".KioskHomeActivity"
-            android:directBootAware="true"
             android:exported="true"
             android:launchMode="singleTask">
 

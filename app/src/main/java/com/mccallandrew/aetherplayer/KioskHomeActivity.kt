@@ -27,7 +27,8 @@ class KioskHomeActivity :
     Activity(),
     SpotifyNowPlayingController.Listener,
     BluetoothDevicesHelper.Listener,
-    WifiStatusHelper.Listener {
+    WifiStatusHelper.Listener,
+    BatteryStatusHelper.Listener {
 
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var activityManager: ActivityManager
@@ -44,11 +45,15 @@ class KioskHomeActivity :
     private lateinit var bluetoothDevices: TextView
     private lateinit var wifiTile: View
     private lateinit var wifiNetwork: TextView
+    private lateinit var batteryGauge: BatteryGaugeView
+    private lateinit var batteryPercent: TextView
+    private lateinit var batteryCaption: TextView
     private lateinit var statusMessage: TextView
 
     private var nowPlayingController: SpotifyNowPlayingController? = null
     private var bluetoothDevicesHelper: BluetoothDevicesHelper? = null
     private var wifiStatusHelper: WifiStatusHelper? = null
+    private var batteryStatusHelper: BatteryStatusHelper? = null
     private var forwardedToOriginalHome = false
     private var spotifyInstalled = false
 
@@ -88,6 +93,9 @@ class KioskHomeActivity :
         bluetoothDevices = findViewById(R.id.bluetooth_devices)
         wifiTile = findViewById(R.id.wifi_tile)
         wifiNetwork = findViewById(R.id.wifi_network)
+        batteryGauge = findViewById(R.id.battery_gauge)
+        batteryPercent = findViewById(R.id.battery_percent)
+        batteryCaption = findViewById(R.id.battery_caption)
         statusMessage = findViewById(R.id.status_message)
 
         nowPlayingPanel.setOnClickListener {
@@ -133,6 +141,7 @@ class KioskHomeActivity :
         super.onResume()
 
         refreshNowPlayingAvailability()
+        handOffToOriginalHomeIfNeeded()
         enterLockTaskIfNeeded()
 
         if (
@@ -148,12 +157,14 @@ class KioskHomeActivity :
 
         startBluetoothDevicesHelper()
         startWifiStatusHelper()
+        startBatteryStatusHelper()
     }
 
     override fun onPause() {
         stopNowPlayingController()
         stopBluetoothDevicesHelper()
         stopWifiStatusHelper()
+        stopBatteryStatusHelper()
         super.onPause()
     }
 
@@ -215,6 +226,23 @@ class KioskHomeActivity :
         wifiNetwork.text = summary
     }
 
+    override fun onBatteryStatusChanged(
+        status: BatteryStatusHelper.BatteryStatus
+    ) {
+        batteryGauge.setBatteryState(
+            percent = status.percent,
+            isCharging = status.isCharging,
+            isFull = status.isFull
+        )
+
+        batteryPercent.text = getString(
+            R.string.battery_percent,
+            status.percent
+        )
+
+        batteryCaption.text = batteryCaptionFor(status)
+    }
+
     private fun handleLaunchIntent(intent: Intent?) {
         when {
             intent == null -> {
@@ -252,8 +280,36 @@ class KioskHomeActivity :
         if (!KioskCommandReceiver.isKioskEnabled(this)) {
             Log.i(TAG, "Home intent received while kiosk is not enabled.")
 
-            forwardToOriginalHome()
+            handOffToOriginalHomeIfNeeded()
         }
+    }
+
+    /*
+     * Home is delivered as soon as this activity is the
+     * preferred launcher, which on a restart is before
+     * BOOT_COMPLETED has turned the kiosk back on. Leaving
+     * then used to start FallbackHome and mark it preferred,
+     * so "Phone is starting" never cleared. Hold the handoff
+     * until unlock and boot have both finished; an explicit
+     * exit does not come through here.
+     */
+    private fun handOffToOriginalHomeIfNeeded() {
+
+        if (KioskCommandReceiver.isKioskEnabled(this)) {
+            return
+        }
+
+        if (!KioskCommandReceiver.isUserUnlocked(this)) {
+            Log.i(TAG, "Deferring home handoff until the user is unlocked.")
+            return
+        }
+
+        if (!KioskCommandReceiver.isBootCompleted()) {
+            Log.i(TAG, "Deferring home handoff until boot has completed.")
+            return
+        }
+
+        forwardToOriginalHome()
     }
 
     /*
@@ -480,6 +536,72 @@ class KioskHomeActivity :
         wifiStatusHelper = null
     }
 
+    private fun startBatteryStatusHelper() {
+        if (batteryStatusHelper != null) {
+            batteryStatusHelper?.refresh()
+            return
+        }
+
+        val helper = BatteryStatusHelper(this, this)
+        batteryStatusHelper = helper
+        helper.start()
+    }
+
+    private fun stopBatteryStatusHelper() {
+        batteryStatusHelper?.stop()
+        batteryStatusHelper = null
+    }
+
+    private fun batteryCaptionFor(
+        status: BatteryStatusHelper.BatteryStatus
+    ): String {
+        if (status.isFull) {
+            return getString(R.string.battery_status_full)
+        }
+
+        if (status.isCharging) {
+            val remaining = formatChargeRemaining(
+                status.chargeTimeRemainingMs
+            )
+
+            if (remaining != null) {
+                return getString(
+                    R.string.battery_status_charging_remaining,
+                    remaining
+                )
+            }
+
+            return getString(R.string.battery_status_charging)
+        }
+
+        return getString(R.string.battery_status_on_battery)
+    }
+
+    private fun formatChargeRemaining(remainingMs: Long): String? {
+        if (remainingMs <= 0L) {
+            return null
+        }
+
+        val totalMinutes = (remainingMs / 60_000L).toInt()
+
+        if (totalMinutes < 1) {
+            return null
+        }
+
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+
+        return when {
+            hours == 0 -> getString(R.string.battery_time_minutes, minutes)
+            minutes == 0 -> getString(R.string.battery_time_hours, hours)
+            else -> getString(
+                R.string.battery_time_hours_minutes,
+                hours,
+                minutes
+            )
+        }
+    }
+
     private fun setTransportEnabled(
         playPauseEnabled: Boolean,
         previousEnabled: Boolean,
@@ -580,9 +702,12 @@ class KioskHomeActivity :
 
         Log.i(TAG, "Exiting kiosk mode.")
 
+        forwardedToOriginalHome = true
+
         stopNowPlayingController()
         stopBluetoothDevicesHelper()
         stopWifiStatusHelper()
+        stopBatteryStatusHelper()
 
         KioskCommandReceiver.setKioskEnabled(this, false)
         KioskCommandReceiver.setNotificationListenerAccess(this, false)
