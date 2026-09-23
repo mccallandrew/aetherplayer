@@ -65,6 +65,65 @@
     <string name="bluetooth_pin_pair">Pair</string>
     <string name="bluetooth_pin_cancel">Cancel</string>
 
+    <string name="wifi_tile_label">Wi-Fi</string>
+    <string name="wifi_tile_description">Open Wi-Fi networks</string>
+    <string name="wifi_not_connected">Not connected</string>
+    <string name="wifi_off">Wi-Fi is off</string>
+
+    <string name="wifi_title">Wi-Fi</string>
+    <string name="wifi_back">Back</string>
+    <string name="wifi_toggle_description">Wi-Fi on or off</string>
+    <string name="wifi_section_saved">Saved networks</string>
+    <string name="wifi_section_available">Available networks</string>
+    <string name="wifi_no_saved_networks">No saved networks</string>
+    <string name="wifi_no_available_networks">No networks found</string>
+    <string name="wifi_scanning">Scanning for networks…</string>
+    <string name="wifi_scan">Scan</string>
+    <string name="wifi_stop_scan">Stop</string>
+    <string name="wifi_status_connected">Connected</string>
+    <string name="wifi_status_connecting">Connecting…</string>
+    <string name="wifi_status_saved">Saved</string>
+    <string name="wifi_status_carrier">Carrier network</string>
+    <string name="wifi_status_open">Open</string>
+    <string name="wifi_status_secured">Secured</string>
+    <string name="wifi_connect">Connect</string>
+    <string name="wifi_disconnect">Disconnect</string>
+    <string name="wifi_forget">Forget</string>
+    <string name="wifi_permission_missing">
+        Wi-Fi permission is missing.
+    </string>
+    <string name="wifi_toggle_failed">
+        Unable to change Wi-Fi power.
+    </string>
+    <string name="wifi_scan_failed">
+        Unable to scan for networks.
+    </string>
+    <string name="wifi_connect_pending">
+        Connecting…
+    </string>
+    <string name="wifi_connect_failed">
+        Unable to connect to that network.
+    </string>
+    <string name="wifi_disconnect_failed">
+        Unable to disconnect from that network.
+    </string>
+    <string name="wifi_forget_failed">
+        Unable to forget that network.
+    </string>
+    <string name="wifi_forget_carrier">
+        Carrier Wi-Fi cannot be forgotten.
+    </string>
+    <string name="wifi_unsupported">
+        That network type is not supported.
+    </string>
+    <string name="wifi_password_title">Password for %1$s</string>
+    <string name="wifi_password_hint">Password</string>
+    <string name="wifi_password_connect">Connect</string>
+    <string name="wifi_password_cancel">Cancel</string>
+    <string name="wifi_password_invalid">
+        Enter a password of at least 8 characters.
+    </string>
+
     <string name="now_playing_idle">Nothing playing</string>
     <string name="now_playing_album_art">Album art</string>
     <string name="now_playing_play">Play</string>
@@ -86,6 +145,10 @@
 
     <string name="status_bluetooth_launch_failed">
         Unable to open Bluetooth.
+    </string>
+
+    <string name="status_wifi_launch_failed">
+        Unable to open Wi-Fi.
     </string>
 
 </resources>
