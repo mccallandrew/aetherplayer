@@ -414,6 +414,8 @@ class KioskHomeActivity :
         grantKioskPermissions()
         KioskCommandReceiver.setNotificationListenerAccess(this, true)
         KioskCommandReceiver.applyPersistentHome(this)
+        KioskLockWallpaper.apply(this)
+        KioskScreenTimeout.apply(this)
     }
 
     private fun grantKioskPermissions() {
@@ -720,6 +722,8 @@ class KioskHomeActivity :
 
         KioskCommandReceiver.clearLockTaskPackages(this)
         KioskCommandReceiver.clearLockTaskFeatures(this)
+        KioskLockWallpaper.restore(this)
+        KioskScreenTimeout.restore(this)
         KioskCommandReceiver.restoreOriginalHome(this)
         KioskCommandReceiver.launchOriginalHome(this)
         finish()
