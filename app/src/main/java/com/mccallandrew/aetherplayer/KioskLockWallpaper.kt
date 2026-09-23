@@ -10,6 +10,9 @@ import android.graphics.Paint
 import android.graphics.Point
 import android.graphics.RectF
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import kotlin.math.min
@@ -22,6 +25,11 @@ import kotlin.math.min
  * Only FLAG_LOCK is written. Home wallpaper is left alone, and
  * exiting the kiosk clears the lock wallpaper so the lock screen
  * follows the home wallpaper again.
+ *
+ * The lock wallpaper does not survive reboot. The applied flag
+ * does, so each boot sets the crest again, and once more a few
+ * seconds later in case the system restores its own wallpaper
+ * after boot.
  */
 class KioskLockWallpaper {
 
@@ -31,30 +39,75 @@ class KioskLockWallpaper {
 
         private const val PREFS_NAME = "kiosk_lock_wallpaper"
         private const val KEY_APPLIED = "applied"
+        private const val KEY_BOOT_COUNT = "boot_count"
+        private const val KEY_WALLPAPER_ID = "wallpaper_id"
+
+        private const val BOOT_RETRY_DELAY_MS = 8000L
+
+        private var retryScheduledForBoot = -1
 
         fun apply(context: Context) {
-            if (isApplied(context)) {
-                return
-            }
-
             if (!isDeviceOwner(context)) {
                 return
             }
 
-            val crest = decodeCrest(context) ?: return
+            if (alreadyApplied(context)) {
+                return
+            }
+
+            if (!writeWallpaper(context)) {
+                return
+            }
+
+            scheduleBootRetry(context)
+        }
+
+        fun restore(context: Context) {
+            if (!isApplied(context)) {
+                return
+            }
+
+            try {
+                WallpaperManager.getInstance(context)
+                    .clear(WallpaperManager.FLAG_LOCK)
+
+                markCleared(context)
+
+                Log.i(TAG, "Restored the lock screen wallpaper.")
+            } catch (exception: Exception) {
+                Log.w(
+                    TAG,
+                    "Unable to restore the lock screen wallpaper.",
+                    exception
+                )
+            }
+        }
+
+        private fun writeWallpaper(context: Context): Boolean {
+            val crest = decodeCrest(context) ?: return false
+            var applied = false
 
             try {
                 val wallpaper = composeWallpaper(context, crest)
 
                 try {
-                    WallpaperManager.getInstance(context).setBitmap(
+                    val wallpaperManager = WallpaperManager.getInstance(context)
+
+                    wallpaperManager.setBitmap(
                         wallpaper,
                         null,
                         false,
                         WallpaperManager.FLAG_LOCK
                     )
 
-                    setApplied(context, true)
+                    markApplied(
+                        context,
+                        wallpaperManager.getWallpaperId(
+                            WallpaperManager.FLAG_LOCK
+                        )
+                    )
+
+                    applied = true
 
                     Log.i(TAG, "Set the kiosk lock screen wallpaper.")
                 } finally {
@@ -69,27 +122,42 @@ class KioskLockWallpaper {
             } finally {
                 crest.recycle()
             }
+
+            return applied
         }
 
-        fun restore(context: Context) {
-            if (!isApplied(context)) {
+        /*
+         * Home is up before the system has finished restoring
+         * wallpapers. Setting the crest again after that pass
+         * is what makes it stick.
+         */
+        private fun scheduleBootRetry(context: Context) {
+            val boot = bootCount(context)
+
+            if (retryScheduledForBoot == boot) {
                 return
             }
 
-            try {
-                WallpaperManager.getInstance(context)
-                    .clear(WallpaperManager.FLAG_LOCK)
+            retryScheduledForBoot = boot
 
-                setApplied(context, false)
+            val appContext = context.applicationContext
 
-                Log.i(TAG, "Restored the lock screen wallpaper.")
-            } catch (exception: Exception) {
-                Log.w(
-                    TAG,
-                    "Unable to restore the lock screen wallpaper.",
-                    exception
-                )
+            Handler(Looper.getMainLooper()).postDelayed(
+                { rewriteIfStillKiosk(appContext) },
+                BOOT_RETRY_DELAY_MS
+            )
+        }
+
+        private fun rewriteIfStillKiosk(context: Context) {
+            if (!KioskCommandReceiver.isKioskEnabled(context)) {
+                return
             }
+
+            if (!isDeviceOwner(context)) {
+                return
+            }
+
+            writeWallpaper(context)
         }
 
         private fun decodeCrest(context: Context): Bitmap? {
@@ -175,17 +243,56 @@ class KioskLockWallpaper {
             return devicePolicyManager.isDeviceOwnerApp(context.packageName)
         }
 
+        private fun alreadyApplied(context: Context): Boolean {
+            val preferences = prefs(context)
+
+            if (!preferences.getBoolean(KEY_APPLIED, false)) {
+                return false
+            }
+
+            if (preferences.getInt(KEY_BOOT_COUNT, -1) != bootCount(context)) {
+                return false
+            }
+
+            val appliedId = preferences.getInt(KEY_WALLPAPER_ID, -1)
+
+            if (appliedId == -1) {
+                return false
+            }
+
+            return WallpaperManager.getInstance(context)
+                .getWallpaperId(WallpaperManager.FLAG_LOCK) == appliedId
+        }
+
         private fun isApplied(context: Context): Boolean {
             return prefs(context).getBoolean(KEY_APPLIED, false)
         }
 
-        private fun setApplied(
+        private fun markApplied(
             context: Context,
-            applied: Boolean
+            wallpaperId: Int
         ) {
             prefs(context).edit()
-                .putBoolean(KEY_APPLIED, applied)
+                .putBoolean(KEY_APPLIED, true)
+                .putInt(KEY_BOOT_COUNT, bootCount(context))
+                .putInt(KEY_WALLPAPER_ID, wallpaperId)
                 .commit()
+        }
+
+        private fun markCleared(context: Context) {
+            prefs(context).edit()
+                .putBoolean(KEY_APPLIED, false)
+                .remove(KEY_BOOT_COUNT)
+                .remove(KEY_WALLPAPER_ID)
+                .commit()
+        }
+
+        private fun bootCount(context: Context): Int {
+            return Settings.Global.getInt(
+                context.contentResolver,
+                Settings.Global.BOOT_COUNT,
+                0
+            )
         }
 
         private fun prefs(context: Context) =
