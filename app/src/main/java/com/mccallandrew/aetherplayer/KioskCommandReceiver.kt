@@ -89,6 +89,19 @@ class KioskCommandReceiver : BroadcastReceiver() {
             "com.google.android.gms"
         )
 
+        /*
+         * Packages the Wi-Fi stack / captive portal may launch
+         * while connecting. Kept off the default allowlist so
+         * the kiosk stays closed; WifiActivity adds them only
+         * while that screen is open.
+         */
+        private val WIFI_CONNECTION_PACKAGES = arrayOf(
+            "com.android.settings",
+            "com.samsung.android.settings",
+            "com.android.captiveportallogin",
+            "com.google.android.captiveportallogin"
+        )
+
         private const val TAG = "AetherPlayer"
 
         private const val PREFS_NAME = "kiosk_policy"
@@ -133,6 +146,11 @@ class KioskCommandReceiver : BroadcastReceiver() {
         fun bluetoothLockTaskPackages(context: Context): Array<String> {
             return defaultLockTaskPackages(context) +
                 BLUETOOTH_PAIRING_PACKAGES
+        }
+
+        fun wifiLockTaskPackages(context: Context): Array<String> {
+            return defaultLockTaskPackages(context) +
+                WIFI_CONNECTION_PACKAGES
         }
 
         fun applyLockTaskPackages(

@@ -26,7 +26,8 @@ import android.widget.TextView
 class KioskHomeActivity :
     Activity(),
     SpotifyNowPlayingController.Listener,
-    BluetoothDevicesHelper.Listener {
+    BluetoothDevicesHelper.Listener,
+    WifiStatusHelper.Listener {
 
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var activityManager: ActivityManager
@@ -41,10 +42,13 @@ class KioskHomeActivity :
     private lateinit var buttonNext: ImageButton
     private lateinit var bluetoothTile: View
     private lateinit var bluetoothDevices: TextView
+    private lateinit var wifiTile: View
+    private lateinit var wifiNetwork: TextView
     private lateinit var statusMessage: TextView
 
     private var nowPlayingController: SpotifyNowPlayingController? = null
     private var bluetoothDevicesHelper: BluetoothDevicesHelper? = null
+    private var wifiStatusHelper: WifiStatusHelper? = null
     private var forwardedToOriginalHome = false
     private var spotifyInstalled = false
 
@@ -82,6 +86,8 @@ class KioskHomeActivity :
         buttonNext = findViewById(R.id.button_next)
         bluetoothTile = findViewById(R.id.bluetooth_tile)
         bluetoothDevices = findViewById(R.id.bluetooth_devices)
+        wifiTile = findViewById(R.id.wifi_tile)
+        wifiNetwork = findViewById(R.id.wifi_network)
         statusMessage = findViewById(R.id.status_message)
 
         nowPlayingPanel.setOnClickListener {
@@ -90,6 +96,10 @@ class KioskHomeActivity :
 
         bluetoothTile.setOnClickListener {
             launchBluetooth()
+        }
+
+        wifiTile.setOnClickListener {
+            launchWifi()
         }
 
         buttonPrevious.setOnClickListener {
@@ -137,11 +147,13 @@ class KioskHomeActivity :
         }
 
         startBluetoothDevicesHelper()
+        startWifiStatusHelper()
     }
 
     override fun onPause() {
         stopNowPlayingController()
         stopBluetoothDevicesHelper()
+        stopWifiStatusHelper()
         super.onPause()
     }
 
@@ -197,6 +209,10 @@ class KioskHomeActivity :
 
     override fun onConnectedDevicesChanged(summary: String) {
         bluetoothDevices.text = summary
+    }
+
+    override fun onWifiStatusChanged(summary: String) {
+        wifiNetwork.text = summary
     }
 
     private fun handleLaunchIntent(intent: Intent?) {
@@ -316,8 +332,9 @@ class KioskHomeActivity :
          * can be the Lock Task root. Spotify must be
          * allowlisted so it can be started on top of it
          * without leaving Lock Task. Settings / Fast Pair stay
-         * off this default list; BluetoothActivity widens the
-         * allowlist only while that screen is open.
+         * off this default list; BluetoothActivity and
+         * WifiActivity widen the allowlist only while those
+         * screens are open.
          *
          * Both setters below are persisted device-policy
          * writes, so only touch them when the policy that is
@@ -338,12 +355,12 @@ class KioskHomeActivity :
             )
         }
 
-        grantBluetoothPermissions()
+        grantKioskPermissions()
         KioskCommandReceiver.setNotificationListenerAccess(this, true)
         KioskCommandReceiver.applyPersistentHome(this)
     }
 
-    private fun grantBluetoothPermissions() {
+    private fun grantKioskPermissions() {
         if (!devicePolicyManager.isDeviceOwnerApp(packageName)) {
             return
         }
@@ -351,8 +368,20 @@ class KioskHomeActivity :
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             grantRuntimePermission(Manifest.permission.BLUETOOTH_CONNECT)
             grantRuntimePermission(Manifest.permission.BLUETOOTH_SCAN)
-        } else {
-            grantRuntimePermission(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+        grantRuntimePermission(Manifest.permission.ACCESS_FINE_LOCATION)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            grantRuntimePermission(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                devicePolicyManager.setLocationEnabled(adminComponent, true)
+            } catch (exception: SecurityException) {
+                Log.w(TAG, "Unable to enable location.", exception)
+            }
         }
     }
 
@@ -433,6 +462,22 @@ class KioskHomeActivity :
     private fun stopBluetoothDevicesHelper() {
         bluetoothDevicesHelper?.stop()
         bluetoothDevicesHelper = null
+    }
+
+    private fun startWifiStatusHelper() {
+        if (wifiStatusHelper != null) {
+            wifiStatusHelper?.refresh()
+            return
+        }
+
+        val helper = WifiStatusHelper(this, this)
+        wifiStatusHelper = helper
+        helper.start()
+    }
+
+    private fun stopWifiStatusHelper() {
+        wifiStatusHelper?.stop()
+        wifiStatusHelper = null
     }
 
     private fun setTransportEnabled(
@@ -519,12 +564,25 @@ class KioskHomeActivity :
         }
     }
 
+    private fun launchWifi() {
+        try {
+            startActivity(Intent(this, WifiActivity::class.java))
+            Log.i(TAG, "Launched Wi-Fi screen.")
+        } catch (exception: ActivityNotFoundException) {
+            Log.e(TAG, "Unable to launch Wi-Fi screen.", exception)
+            showMessage(
+                getString(R.string.status_wifi_launch_failed)
+            )
+        }
+    }
+
     private fun exitKiosk() {
 
         Log.i(TAG, "Exiting kiosk mode.")
 
         stopNowPlayingController()
         stopBluetoothDevicesHelper()
+        stopWifiStatusHelper()
 
         KioskCommandReceiver.setKioskEnabled(this, false)
         KioskCommandReceiver.setNotificationListenerAccess(this, false)
