@@ -1,9 +1,9 @@
 # AetherPlayer
 
 Device-owner kiosk controller that launches Spotify in lock task mode.
-Bluetooth pairing is handled in-app. While the Bluetooth screen is
-open, Settings / Fast Pair packages are temporarily lock-task
-allowlisted so system pairing UI is not blocked.
+Bluetooth pairing and Wi-Fi connection are handled in-app. While those
+screens are open, Settings / Fast Pair / captive-portal packages are
+temporarily lock-task allowlisted so system UI is not blocked.
 
 ## Build and install
 
