@@ -133,6 +133,7 @@ class KioskHomeActivity :
         super.onResume()
 
         refreshNowPlayingAvailability()
+        handOffToOriginalHomeIfNeeded()
         enterLockTaskIfNeeded()
 
         if (
@@ -252,8 +253,36 @@ class KioskHomeActivity :
         if (!KioskCommandReceiver.isKioskEnabled(this)) {
             Log.i(TAG, "Home intent received while kiosk is not enabled.")
 
-            forwardToOriginalHome()
+            handOffToOriginalHomeIfNeeded()
         }
+    }
+
+    /*
+     * Home is delivered as soon as this activity is the
+     * preferred launcher, which on a restart is before
+     * BOOT_COMPLETED has turned the kiosk back on. Leaving
+     * then used to start FallbackHome and mark it preferred,
+     * so "Phone is starting" never cleared. Hold the handoff
+     * until unlock and boot have both finished; an explicit
+     * exit does not come through here.
+     */
+    private fun handOffToOriginalHomeIfNeeded() {
+
+        if (KioskCommandReceiver.isKioskEnabled(this)) {
+            return
+        }
+
+        if (!KioskCommandReceiver.isUserUnlocked(this)) {
+            Log.i(TAG, "Deferring home handoff until the user is unlocked.")
+            return
+        }
+
+        if (!KioskCommandReceiver.isBootCompleted()) {
+            Log.i(TAG, "Deferring home handoff until boot has completed.")
+            return
+        }
+
+        forwardToOriginalHome()
     }
 
     /*
@@ -579,6 +608,8 @@ class KioskHomeActivity :
     private fun exitKiosk() {
 
         Log.i(TAG, "Exiting kiosk mode.")
+
+        forwardedToOriginalHome = true
 
         stopNowPlayingController()
         stopBluetoothDevicesHelper()
