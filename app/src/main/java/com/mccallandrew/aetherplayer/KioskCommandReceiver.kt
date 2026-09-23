@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.UserManager
 import android.util.Log
 
 class KioskCommandReceiver : BroadcastReceiver() {
@@ -103,6 +104,16 @@ class KioskCommandReceiver : BroadcastReceiver() {
         )
 
         private const val TAG = "AetherPlayer"
+
+        /*
+         * Settings ships this as a HOME activity so the system
+         * has somewhere to land before a real launcher can run.
+         * Its screen is "Phone is starting…". It is not a
+         * launcher, and pinning it as the preferred Home makes
+         * that screen wait forever for a home that is not itself.
+         */
+        private const val FALLBACK_HOME_CLASS = "FallbackHome"
+        private const val FALLBACK_HOME_PACKAGE = "com.android.settings"
 
         private const val PREFS_NAME = "kiosk_policy"
         private const val KEY_HOME_PACKAGE = "original_home_package"
@@ -242,6 +253,30 @@ class KioskCommandReceiver : BroadcastReceiver() {
             }
         }
 
+        fun isUserUnlocked(context: Context): Boolean {
+            val userManager =
+                context.getSystemService(Context.USER_SERVICE) as UserManager
+
+            return userManager.isUserUnlocked
+        }
+
+        /*
+         * BOOT_COMPLETED is what turns the kiosk back on. Home
+         * can arrive before that, and handing off in that window
+         * is what used to pin FallbackHome in place.
+         */
+        fun isBootCompleted(): Boolean {
+            val value = systemProperty("sys.boot_completed")
+                ?: shellProperty("sys.boot_completed")
+
+            if (value == null) {
+                Log.w(TAG, "Unable to read boot state; assuming boot has completed.")
+                return true
+            }
+
+            return value == "1"
+        }
+
         fun applyPersistentHome(context: Context) {
             val devicePolicyManager = devicePolicyManager(context) ?: return
             val admin = adminComponent(context)
@@ -282,20 +317,34 @@ class KioskCommandReceiver : BroadcastReceiver() {
             val devicePolicyManager = devicePolicyManager(context) ?: return
             val admin = adminComponent(context)
 
+            captureOriginalHomeIfNeeded(context)
+
+            val originalHome = originalHomeComponent(context)
+
+            /*
+             * Clearing our own preference with nothing to put
+             * back resolves Home to FallbackHome, which then
+             * never finishes. Wait until a real launcher exists.
+             */
+            if (originalHome == null) {
+                Log.w(TAG, "Not restoring Home; no usable launcher yet.")
+                return
+            }
+
             devicePolicyManager.clearPackagePersistentPreferredActivities(
                 admin,
                 context.packageName
             )
 
-            originalHomeComponent(context)?.let { originalHome ->
-                Log.i(TAG, "Restoring $originalHome as Home.")
+            clearFallbackHomePreference(context)
 
-                devicePolicyManager.addPersistentPreferredActivity(
-                    admin,
-                    homeIntentFilter(),
-                    originalHome
-                )
-            }
+            Log.i(TAG, "Restoring $originalHome as Home.")
+
+            devicePolicyManager.addPersistentPreferredActivity(
+                admin,
+                homeIntentFilter(),
+                originalHome
+            )
         }
 
         fun hasOriginalHome(context: Context): Boolean {
@@ -305,16 +354,23 @@ class KioskCommandReceiver : BroadcastReceiver() {
         fun launchOriginalHome(context: Context) {
             val originalHome = originalHomeComponent(context)
 
+            /*
+             * An implicit Home intent is how the system picks
+             * FallbackHome when no real launcher is preferred.
+             * Never start that screen from here.
+             */
+            if (originalHome == null) {
+                Log.w(TAG, "Not launching Home; no usable launcher yet.")
+                return
+            }
+
             val homeIntent = Intent(Intent.ACTION_MAIN).apply {
                 addCategory(Intent.CATEGORY_HOME)
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                             Intent.FLAG_ACTIVITY_CLEAR_TASK
                 )
-
-                if (originalHome != null) {
-                    component = originalHome
-                }
+                component = originalHome
             }
 
             context.startActivity(homeIntent)
@@ -362,6 +418,17 @@ class KioskCommandReceiver : BroadcastReceiver() {
         }
 
         private fun captureOriginalHomeIfNeeded(context: Context) {
+            /*
+             * Before unlock, queryIntentActivities only returns
+             * direct-boot homes. On this device that set is the
+             * kiosk and FallbackHome, so a capture here stores
+             * the "Phone is starting" screen as the original
+             * launcher.
+             */
+            if (!isUserUnlocked(context)) {
+                return
+            }
+
             val savedHome = savedHomeComponent(context)
 
             if (savedHome != null && isUsableHome(context, savedHome)) {
@@ -370,10 +437,12 @@ class KioskCommandReceiver : BroadcastReceiver() {
 
             val originalHome = findOriginalHome(context) ?: return
 
+            Log.i(TAG, "Remembering $originalHome as the original Home.")
+
             prefs(context).edit()
                 .putString(KEY_HOME_PACKAGE, originalHome.packageName)
                 .putString(KEY_HOME_CLASS, originalHome.className)
-                .apply()
+                .commit()
         }
 
         private fun findOriginalHome(context: Context): ComponentName? {
@@ -434,11 +503,61 @@ class KioskCommandReceiver : BroadcastReceiver() {
                 return false
             }
 
+            if (isFallbackHome(component)) {
+                return false
+            }
+
             return try {
                 context.packageManager.getActivityInfo(component, 0)
                 true
             } catch (_: PackageManager.NameNotFoundException) {
                 false
+            }
+        }
+
+        private fun isFallbackHome(component: ComponentName): Boolean {
+            return component.packageName == FALLBACK_HOME_PACKAGE ||
+                component.className.contains(FALLBACK_HOME_CLASS)
+        }
+
+        private fun clearFallbackHomePreference(context: Context) {
+            val devicePolicyManager = devicePolicyManager(context) ?: return
+
+            devicePolicyManager.clearPackagePersistentPreferredActivities(
+                adminComponent(context),
+                FALLBACK_HOME_PACKAGE
+            )
+        }
+
+        private fun systemProperty(name: String): String? {
+            return try {
+                val systemProperties = Class.forName("android.os.SystemProperties")
+                val get = systemProperties.getMethod(
+                    "get",
+                    String::class.java,
+                    String::class.java
+                )
+
+                (get.invoke(null, name, "") as String).trim().ifEmpty { null }
+            } catch (exception: Exception) {
+                Log.w(TAG, "SystemProperties read failed.", exception)
+                null
+            }
+        }
+
+        private fun shellProperty(name: String): String? {
+            return try {
+                val process = ProcessBuilder("/system/bin/getprop", name)
+                    .redirectErrorStream(true)
+                    .start()
+
+                val value = process.inputStream.bufferedReader().readText().trim()
+                process.waitFor()
+
+                value.ifEmpty { null }
+            } catch (exception: Exception) {
+                Log.w(TAG, "getprop read failed.", exception)
+                null
             }
         }
 
